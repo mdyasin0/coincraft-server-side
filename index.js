@@ -4,7 +4,7 @@ const app = express();
 const port = process.env.PORT || 5000;
 require('dotenv').config()
 const { MongoClient, ServerApiVersion } = require('mongodb');
-
+const { ObjectId } = require('mongodb');
 app.use(cors());
 app.use(express.json());
 
@@ -95,7 +95,7 @@ app.get('/my-tasks/:email', async (req, res) => {
 
 // delete
 
-const { ObjectId } = require('mongodb');
+
 
 app.delete('/delete-task/:id', async (req, res) => {
   try {
@@ -137,11 +137,61 @@ app.patch('/refill-coins/:email', async (req, res) => {
   }
 });
 
+// UPDATE TASK BY ID
+
+
+app.patch('/update-task/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const updatedTask = req.body;
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).send({ message: 'Invalid task ID' });
+    }
+
+    const result = await bayerCollection.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: updatedTask }
+    );
+
+    if (result.matchedCount > 0) {
+      res.send({ message: 'Task update attempted (matched).' }); // Updated or not, it’s fine
+    } else {
+      res.status(404).send({ message: 'Task not found' });
+    }
+  } catch (error) {
+    console.error("Update error:", error);
+    res.status(500).send({ message: 'Failed to update task' });
+  }
+});
 
 
 
 
 
+// bayer data by id 
+
+
+app.get('/task/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).send({ message: 'Invalid task ID' });
+    }
+
+    const task = await bayerCollection.findOne({ _id: new ObjectId(id) });
+
+    if (!task) {
+      return res.status(404).send({ message: 'Task not found' });
+    }
+
+    res.send(task);
+  } catch (error) {
+    console.error('Error fetching task by ID:', error);
+    res.status(500).send({ message: 'Failed to fetch task' });
+  }
+});
 
 
     app.get('/alluser', async (req, res) => {
