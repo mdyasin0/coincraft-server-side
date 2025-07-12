@@ -71,11 +71,82 @@ app.patch('/coins/:email', async (req, res) => {
     res.status(500).send({ message: 'Failed to update coin' });
   }
 });
+// buyer-tasks by email
+app.get('/my-tasks/:email', async (req, res) => {
+  try {
+    const email = req.params.email;
+
+    if (!email) {
+      return res.status(400).send({ message: 'Email is required' });
+    }
+
+    // Find all tasks created by the user and sort them by completion_date DESC
+    const tasks = await bayerCollection
+      .find({ buyer_email: email })
+      .sort({ completion_date: -1 })
+      .toArray();
+
+    res.send(tasks);
+  } catch (error) {
+    console.error('Error fetching user tasks:', error);
+    res.status(500).send({ message: 'Failed to fetch user tasks' });
+  }
+});
+
+// delete
+
+const { ObjectId } = require('mongodb');
+
+app.delete('/delete-task/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const result = await bayerCollection.deleteOne({ _id: new ObjectId(id) });
+
+    if (result.deletedCount === 0) {
+      return res.status(404).send({ message: 'Task not found' });
+    }
+
+    res.send({ message: 'Task deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting task:', error);
+    res.status(500).send({ message: 'Failed to delete task' });
+  }
+});
+
+
+// coin update
+
+app.patch('/refill-coins/:email', async (req, res) => {
+  try {
+    const email = req.params.email;
+    const { refill } = req.body;
+
+    const result = await userCollection.updateOne(
+      { email },
+      { $inc: { coin: refill } }
+    );
+
+    if (result.modifiedCount > 0) {
+      res.send({ message: 'Coins refunded successfully' });
+    } else {
+      res.status(404).send({ message: 'User not found or not updated' });
+    }
+  } catch (error) {
+    console.error('Coin refill error:', error);
+    res.status(500).send({ message: 'Failed to refund coins' });
+  }
+});
+
+
+
+
+
+
 
 
     app.get('/alluser', async (req, res) => {
   try {
-    const tasksCollection = client.db('CoinCrafter').collection('tasks');  // তোমার কালেকশন নাম ঠিক করো
+    const tasksCollection = client.db('CoinCrafter').collection('tasks');  
     const tasks = await tasksCollection.find({}).toArray();
     res.send(tasks);
   } catch (error) {
@@ -138,7 +209,7 @@ app.get('/user', async (req, res) => {
       return res.status(400).send({ message: 'Email query param missing' });
     }
 
-    const userCollection = client.db('CoinCrafter').collection('register_user'); // তোমার কালেকশন নাম ঠিক করো
+    const userCollection = client.db('CoinCrafter').collection('register_user'); 
     const user = await userCollection.findOne({ email: email });
 
     if (!user) {
