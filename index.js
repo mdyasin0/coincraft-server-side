@@ -196,13 +196,36 @@ app.get('/task/:id', async (req, res) => {
 
     app.get('/alluser', async (req, res) => {
   try {
-    const tasksCollection = client.db('CoinCrafter').collection('tasks');  
-    const tasks = await tasksCollection.find({}).toArray();
+    
+    const tasks = await userCollection.find({}).toArray();
     res.send(tasks);
   } catch (error) {
     console.error(error);
     res.status(500).send({ message: 'Failed to get tasks' });
   }
+});
+
+// delete user 
+
+app.delete('/delete-user/:email', async (req, res) => {
+  const email = req.params.email;
+  const result = await userCollection.deleteOne({ email });
+  res.send(result);
+});
+
+
+//change role
+
+app.patch('/update-role/:email', async (req, res) => {
+  const email = req.params.email;
+  const { role } = req.body;
+
+  const result = await userCollection.updateOne(
+    { email },
+    { $set: { role } }
+  );
+
+  res.send(result);
 });
 
 
