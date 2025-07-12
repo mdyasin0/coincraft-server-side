@@ -31,7 +31,46 @@ async function run() {
 
 
     const  userCollection = client.db('CoinCrafter').collection('register_user');
+     const  bayerCollection = client.db('CoinCrafter').collection('bayer_task');
 
+// bayer new task
+
+
+app.post('/tasks', async (req, res) => {
+  try {
+    const taskData = req.body;
+    const bayerCollection = client.db('CoinCrafter').collection('bayer_task');
+    const result = await bayerCollection.insertOne(taskData);
+    res.status(201).send(result);
+  } catch (error) {
+    console.error('Error posting task:', error);
+    res.status(500).send({ message: 'Failed to post task' });
+  }
+});
+
+// update data by coin
+
+app.patch('/coins/:email', async (req, res) => {
+  try {
+    const email = req.params.email;
+    const { coinToDeduct } = req.body;
+
+    const result = await userCollection.updateOne(
+      { email },
+      { $inc: { coin: -coinToDeduct } }
+    );
+
+    if (result.modifiedCount > 0) {
+      res.send({ message: 'Coin deducted successfully' });
+    } else {
+      res.status(404).send({ message: 'User not found or coin not updated' });
+    }
+
+  } catch (error) {
+    console.error('Coin update error:', error);
+    res.status(500).send({ message: 'Failed to update coin' });
+  }
+});
 
 
     app.get('/alluser', async (req, res) => {
@@ -55,6 +94,24 @@ app.get('/user', async (req, res) => {
 
     const userCollection = client.db('CoinCrafter').collection('register_user'); // তোমার কালেকশন নাম ঠিক করো
     const user = await userCollection.findOne({ email: email });
+
+    if (!user) {
+      return res.status(404).send({ message: 'User not found' });
+    }
+
+    res.send(user);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ message: 'Failed to fetch user' });
+  }
+});
+
+
+app.get('/user/:email', async (req, res) => {
+  try {
+    const email = req.params.email;
+    const userCollection = client.db('CoinCrafter').collection('register_user');
+    const user = await userCollection.findOne({ email });
 
     if (!user) {
       return res.status(404).send({ message: 'User not found' });
