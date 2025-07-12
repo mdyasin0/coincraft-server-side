@@ -83,8 +83,54 @@ app.patch('/coins/:email', async (req, res) => {
     res.status(500).send({ message: 'Failed to get tasks' });
   }
 });
-// user info  by filter
-// /user?email=user@example.com  এর মাধ্যমে ইউজার ডাটা আনবে
+
+
+
+// bayer states by email
+app.get('/buyer-stats/:email', async (req, res) => {
+  try {
+    const email = req.params.email;
+
+    if (!email) {
+      return res.status(400).send({ message: 'Email is required' });
+    }
+
+    // Filter tasks by buyer email
+    const buyerTasks = await bayerCollection.find({ buyer_email: email }).toArray();
+
+    // Calculate total task count
+    const totalTaskCount = buyerTasks.length;
+
+    // Sum of all required_workers (Pending)
+    const pendingTaskCount = buyerTasks.reduce((sum, task) => sum + (task.required_workers || 0), 0);
+
+    // Sum of all payment (required_workers * payable_amount)
+    const totalPayment = buyerTasks.reduce((sum, task) => {
+      const workers = task.required_workers || 0;
+      const amount = task.payable_amount || 0;
+      return sum + (workers * amount);
+    }, 0);
+
+    res.send({
+      totalTaskCount,
+      pendingTaskCount,
+      totalPayment,
+    });
+
+  } catch (error) {
+    console.error('Error in /buyer-stats/:email route:', error);
+    res.status(500).send({ message: 'Failed to calculate buyer stats' });
+  }
+});
+
+
+
+
+
+
+
+// user info  by filter email
+
 app.get('/user', async (req, res) => {
   try {
     const email = req.query.email;
