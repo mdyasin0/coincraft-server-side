@@ -228,6 +228,18 @@ app.patch('/update-role/:email', async (req, res) => {
   res.send(result);
 });
 
+// all task
+
+app.get('/alltasks', async (req, res) => {
+  try {
+  
+    const tasks = await bayerCollection.find({}).toArray();
+    res.send(tasks);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ message: 'Failed to get tasks' });
+  }
+});
 
 
 // bayer states by email
