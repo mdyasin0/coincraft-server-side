@@ -34,7 +34,141 @@ async function run() {
      const  bayerCollection = client.db('CoinCrafter').collection('bayer_task');
      const  paymentsCollection= client.db('CoinCrafter').collection('payment-history');
       const  submissionCollection= client.db('CoinCrafter').collection('submission');
-     const withdrawalCollection = client.db("CoinCrafter").collection("withdrawals");
+ 
+      const withdrawalCollection = client.db("CoinCrafter").collection("withdrawals");
+
+//  Approve a Withdrawal Request
+app.patch("/withdrawals/approve/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+
+    const withdrawal = await withdrawalCollection.findOne({ _id: new ObjectId(id) });
+
+    if (!withdrawal) {
+      return res.status(404).send({ message: "Withdrawal request not found" });
+    }
+
+    const { worker_email, withdrawal_coin } = withdrawal;
+
+    // 1. Update withdrawal status to "approved"
+    const updateStatus = await withdrawalCollection.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: { status: "approved" } }
+    );
+
+    // 2. Decrease coins from the worker's account
+    const updateUser = await userCollection.updateOne(
+      { email: worker_email },
+      { $inc: { coin: -withdrawal_coin } }
+    );
+
+    res.send({
+      success: true,
+      message: "Withdrawal approved and user coin updated.",
+      updateStatus,
+      updateUser,
+    });
+
+  } catch (error) {
+    console.error("Error approving withdrawal:", error);
+    res.status(500).send({ message: "Internal server error" });
+  }
+});
+// Pending Withdrawals
+
+app.get("/withdrawals/pending", async (req, res) => {
+  try {
+    const pendingWithdrawals = await withdrawalCollection
+      .find({ status: "pending" })
+      .toArray();
+
+    res.send(pendingWithdrawals);
+  } catch (error) {
+    console.error("Error fetching pending withdrawals:", error);
+    res.status(500).send({ message: "Internal server error" });
+  }
+});
+
+
+//  total payment 
+app.get('/withdrawals/total-payment', async (req, res) => {
+  try {
+    const withdrawalCollection = client.db("CoinCrafter").collection("withdrawals");
+
+    const result = await withdrawalCollection.aggregate([
+      { $match: { status: "approved" } },
+      {
+        $group: {
+          _id: null,
+          totalApprovedPayment: { $sum: { $toDouble: "$withdrawal_amount" } }
+        }
+      }
+    ]).toArray();
+
+    const totalApprovedPayment = result.length > 0 ? result[0].totalApprovedPayment : 0;
+
+    res.json({ totalApprovedPayment });
+  } catch (error) {
+    console.error("Error fetching total approved payments:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+
+
+    //  admin states 
+
+    app.get('/admin_stats', async (req, res) => {
+  try {
+    const userCollection = client.db('CoinCrafter').collection('register_user');
+
+    // Aggregation pipeline
+    const stats = await userCollection.aggregate([
+      {
+        $group: {
+          _id: null,
+          totalWorkers: {
+            $sum: {
+              $cond: [{ $eq: ['$role', 'worker'] }, 1, 0]
+            }
+          },
+          totalBuyers: {
+            $sum: {
+              $cond: [{ $eq: ['$role', 'buyer'] }, 1, 0]
+            }
+          },
+          totalCoins: {
+            $sum: {
+              $toDouble: "$coin"  // coin কে double এ convert করে যোগ করবে
+            }
+          }
+        }
+      }
+    ]).toArray();
+
+    if (stats.length === 0) {
+      return res.json({
+        totalWorkers: 0,
+        totalBuyers: 0,
+        totalCoins: 0,
+      });
+    }
+
+    const { totalWorkers, totalBuyers, totalCoins } = stats[0];
+
+    res.json({
+      totalWorkers,
+      totalBuyers,
+      totalCoins,
+    });
+  } catch (error) {
+    console.error("Error fetching dashboard stats:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+
+
 
 // Save withdrawal request
 app.post("/withdrawals", async (req, res) => {
