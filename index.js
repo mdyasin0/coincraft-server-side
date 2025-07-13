@@ -35,8 +35,100 @@ async function run() {
      const  paymentsCollection= client.db('CoinCrafter').collection('payment-history');
       const  submissionCollection= client.db('CoinCrafter').collection('submission');
 
+// Approve Submission Route
+
+app.patch("/submissions/approve/:id", async (req, res) => {
+  try {
+    const submissionId = req.params.id;
+
+    const submission = await submissionCollection.findOne({ _id: new ObjectId(submissionId) });
+    if (!submission) return res.status(404).send({ success: false, message: "Submission not found" });
+
+    const { worker_email, payable_amount, task_id } = submission;
+
+    // Update submission status to "approved"
+    await submissionCollection.updateOne(
+      { _id: new ObjectId(submissionId) },
+      { $set: { status: "approved" } }
+    );
+
+    // Decrease required_workers by 1 in bayer_task
+    await bayerCollection.updateOne(
+      { _id: new ObjectId(task_id) },
+      { $inc: { required_workers: -1 } }
+    );
+
+    //  Increase coins in userCollection
+    await userCollection.updateOne(
+      { email: worker_email },
+      { $inc: { coin: payable_amount } }
+    );
+
+    res.send({ success: true, message: "Submission approved and updated." });
+  } catch (err) {
+    console.error("Approval error:", err);
+    res.status(500).send({ success: false, message: "Internal server error" });
+  }
+});
+
+//  Reject Submission Route
+app.patch("/submissions/reject/:id", async (req, res) => {
+  try {
+    const submissionId = req.params.id;
+
+    const submission = await submissionCollection.findOne({ _id: new ObjectId(submissionId) });
+    if (!submission) return res.status(404).send({ success: false, message: "Submission not found" });
+
+    const { task_id } = submission;
+
+    //  Update submission status to "rejected"
+    await submissionCollection.updateOne(
+      { _id: new ObjectId(submissionId) },
+      { $set: { status: "rejected" } }
+    );
+
+    //  Increase required_workers by 1 in bayer_task
+    await bayerCollection.updateOne(
+      { _id: new ObjectId(task_id) },
+      { $inc: { required_workers: 1 } }
+    );
+
+    res.send({ success: true, message: "Submission rejected and task updated." });
+  } catch (err) {
+    console.error("Rejection error:", err);
+    res.status(500).send({ success: false, message: "Internal server error" });
+  }
+});
 
 
+
+
+
+
+
+// Get all pending submissions for a buyer by buyer's email
+app.get('/submissions/pending/:buyerEmail', async (req, res) => {
+  try {
+    const buyerEmail = req.params.buyerEmail;
+
+    if (!buyerEmail) {
+      return res.status(400).send({ message: 'Buyer email is required' });
+    }
+
+    // Find submissions with matching buyer_email and status 'pending'
+    const submissions = await submissionCollection
+      .find({ buyer_email: buyerEmail, status: "pending" })
+      .toArray();
+
+    res.send(submissions);
+  } catch (error) {
+    console.error('Error fetching pending submissions:', error);
+    res.status(500).send({ message: 'Failed to fetch pending submissions' });
+  }
+});
+
+
+      
 // Get task details by ID
 app.get('/tasks/:id', async (req, res) => {
   const id = req.params.id;
