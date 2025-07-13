@@ -34,6 +34,46 @@ async function run() {
      const  bayerCollection = client.db('CoinCrafter').collection('bayer_task');
      const  paymentsCollection= client.db('CoinCrafter').collection('payment-history');
       const  submissionCollection= client.db('CoinCrafter').collection('submission');
+     const withdrawalCollection = client.db("CoinCrafter").collection("withdrawals");
+
+// Save withdrawal request
+app.post("/withdrawals", async (req, res) => {
+  try {
+    const withdrawData = req.body;
+    
+    const result = await withdrawalCollection.insertOne(withdrawData);
+    res.send(result);
+  } catch (error) {
+    console.error("Withdrawal error:", error);
+    res.status(500).send({ message: "Failed to submit withdrawal request" });
+  }
+});
+
+
+
+// Get all submissions by worker email
+app.get("/submissions/worker/:email", async (req, res) => {
+  try {
+    const email = req.params.email;
+    const submissions = await submissionCollection
+      .find({ worker_email: email })
+      .toArray();
+
+    // Add createdAt manually from ObjectId
+    const submissionsWithTimestamp = submissions.map(sub => ({
+      ...sub,
+      createdAt: new Date(sub._id.getTimestamp()) // Real timestamp
+    }));
+
+    res.send(submissionsWithTimestamp);
+  } catch (err) {
+    console.error("Error fetching submissions:", err);
+    res.status(500).send({ error: "Internal server error" });
+  }
+});
+
+
+
 
 // Approve Submission Route
 
