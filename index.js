@@ -32,8 +32,45 @@ async function run() {
 
     const  userCollection = client.db('CoinCrafter').collection('register_user');
      const  bayerCollection = client.db('CoinCrafter').collection('bayer_task');
+     const  paymentsCollection= client.db('CoinCrafter').collection('paymen-histry');
 
-// bayer new task
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+
+
+// Save payment info
+app.post('/payments', async (req, res) => {
+  const payment = req.body;
+  const result = await paymentsCollection.insertOne(payment);
+  res.send(result);
+});
+
+// Update user coin balance
+app.patch('/users/coins/:email', async (req, res) => {
+  const email = req.params.email;
+  const { coinToAdd } = req.body;
+  const filter = { email };
+  const updateDoc = {
+    $inc: { coin: coinToAdd }
+  };
+  const result = await userCollection.updateOne(filter, updateDoc);
+  res.send(result);
+});
+
+
+
+app.post('/create-payment-intent', async (req, res) => {
+  try {
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: 1000, // Amount in cents
+      currency: 'usd',
+      payment_method_types: ['card'],
+    });
+    res.json({ clientSecret: paymentIntent.client_secret });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 
 
 app.post('/tasks', async (req, res) => {
