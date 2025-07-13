@@ -32,7 +32,41 @@ async function run() {
 
     const  userCollection = client.db('CoinCrafter').collection('register_user');
      const  bayerCollection = client.db('CoinCrafter').collection('bayer_task');
-     const  paymentsCollection= client.db('CoinCrafter').collection('paymen-histry');
+     const  paymentsCollection= client.db('CoinCrafter').collection('payment-history');
+      const  submissionCollection= client.db('CoinCrafter').collection('submission');
+
+
+
+// Get task details by ID
+app.get('/tasks/:id', async (req, res) => {
+  const id = req.params.id;
+  const task = await bayerCollection.findOne({ _id: new ObjectId(id) });
+  res.send(task);
+});
+
+// Save submission
+app.post('/submissions', async (req, res) => {
+  const submission = req.body;
+  const result = await submissionCollection.insertOne(submission);
+  res.send(result);
+});
+
+
+
+// all tasks
+
+
+// Get all payments by email
+app.get('/payments/:email', async (req, res) => {
+  const email = req.params.email;
+  const result = await paymentsCollection
+    .find({ email })
+    .sort({ date: -1 }) // latest first
+    .toArray();
+  res.send(result);
+});
+
+
 
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
