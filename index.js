@@ -183,6 +183,40 @@ app.post("/withdrawals", async (req, res) => {
   }
 });
 
+// only approved submission return base one email
+
+app.get("/filter_submission", async (req, res) => {
+  try {
+    const email = req.query.email;
+    const status = req.query.status;
+
+    if (!email || !status) {
+      return res.status(400).send({
+        message: "Email and status are required"
+      });
+    }
+
+    const submissions = await submissionCollection
+      .find({
+        worker_email: email,
+        status: status
+      })
+      .toArray();
+
+    const submissionsWithTimestamp = submissions.map((sub) => ({
+      ...sub,
+      createdAt: new Date(sub._id.getTimestamp())
+    }));
+
+    res.send(submissionsWithTimestamp);
+  } catch (error) {
+    console.error("Error filtering submissions:", error);
+
+    res.status(500).send({
+      message: "Failed to filter submissions"
+    });
+  }
+});
 
 
 // Get all submissions by worker email
@@ -530,7 +564,7 @@ app.get('/task/:id', async (req, res) => {
   }
 });
 
-
+// all user 
     app.get('/alluser', async (req, res) => {
   try {
     
@@ -541,7 +575,27 @@ app.get('/task/:id', async (req, res) => {
     res.status(500).send({ message: 'Failed to get tasks' });
   }
 });
+//  top 6 user base on coin
+app.get('/topuser', async (req, res) => {
+  try {
+    const users = await userCollection
+      .find({ role: "worker" })
+      .project({
+        _id: 0,
+        name: 1,
+        coin: 1,
+        photoURL: 1
+      })
+      .sort({ coin: -1 })
+      .limit(6)
+      .toArray();
 
+    res.send(users);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ message: 'Failed to get users' });
+  }
+});
 // delete user 
 
 app.delete('/delete-user/:email', async (req, res) => {
@@ -667,32 +721,62 @@ app.get('/user/:email', async (req, res) => {
     // register user
 
 
-    app.post('/register-user', async (req, res) => {
+ 
+app.post("/register-user", async (req, res) => {
   try {
-    const user = req.body;
-    const { email, role } = user;
+    const { name, email, photoURL, role } = req.body;
 
-    // Check if user already exists
+    // Validate required fields
+    if (!name || !email || !photoURL || !role) {
+      return res.status(400).send({
+        message: "All fields are required"
+      });
+    }
+
+    // Validate role
+    if (!["worker", "buyer"].includes(role)) {
+      return res.status(400).send({
+        message: "Invalid role"
+      });
+    }
+
+    // Check existing user
     const existingUser = await userCollection.findOne({ email });
+
     if (existingUser) {
-      return res.status(400).send({ message: 'User already exists' });
+      return res.status(400).send({
+        message: "User already exists"
+      });
     }
 
-    // Set coin based on role
-    if (role === 'worker') {
-      user.coin = 10;
-    } else if (role === 'buyer') {
-      user.coin = 50;
-    } else {
-      user.coin = 0; // fallback if role is unknown
-    }
+    // Set initial coin
+    const coin = role === "worker" ? 10 : 50;
 
-    const result = await userCollection.insertOne(user);
-    res.send(result);
+    // Password is not saved
+    const userData = {
+      name,
+      email,
+      photoURL,
+      role,
+      coin
+    };
+
+    const result = await userCollection.insertOne(userData);
+
+    res.status(201).send({
+      message: "Registration successful",
+      insertedId: result.insertedId
+    });
+
   } catch (error) {
-    res.status(500).send({ error: 'Something went wrong during registration' });
+    console.error("Register user error:", error);
+
+    res.status(500).send({
+      message: "Something went wrong during registration"
+    });
   }
 });
+
 
 //  sign in  user with google 
 
